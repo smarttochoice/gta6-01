@@ -1,43 +1,51 @@
-// Keyboard and mouse input, read every frame into one plain object the world steps.
-export const ACTION_CONFIRM = 'confirm';
+// Keyboard and mouse, read once a frame into one plain object the world
+// steps. Keys are held in a set; edge actions (enter a car, confirm) queue
+// once per press so a fixed-step loop never fires them twice.
 export const ACTION_PAUSE = 'pause';
 export const ACTION_MUTE = 'mute';
 export const ACTION_RESTART = 'restart';
 export const ACTION_CONTINUE = 'continue';
+export const ACTION_HIDE_HINTS = 'hide-hints';
+
+const HELD_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
 
 export function createInput(canvas, onAction) {
-  const keys = new Set();
+  const held = new Set();
   const state = {
     up: false, down: false, left: false, right: false,
     run: false, handbrake: false, enter: false, shoot: false,
     aiming: false, aimX: 0, aimY: 0, confirm: false,
   };
+  // The mouse position in screen pixels, kept apart from the world-space aim
+  // below: converting the same pair twice would send the aim drifting across
+  // the map whenever the mouse holds still.
+  let aimSX = 0;
+  let aimSY = 0;
   let enterQueued = false;
   let confirmQueued = false;
 
-  function keyCode(e) {
-    return e.code;
-  }
-
   window.addEventListener('keydown', (e) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+    if (HELD_KEYS.includes(e.code)) e.preventDefault();
     if (e.repeat) return;
-    keys.add(keyCode(e));
-    if (e.code === 'KeyE') enterQueued = true;
-    if (e.code === 'Enter') confirmQueued = true;
-    if (e.code === 'KeyP') onAction(ACTION_PAUSE);
-    if (e.code === 'KeyM') onAction(ACTION_MUTE);
-    if (e.code === 'KeyR') onAction(ACTION_RESTART);
-    if (e.code === 'KeyC') onAction(ACTION_CONTINUE);
-    if (e.code === 'KeyH') onAction('hide-hints');
+    held.add(e.code);
+    switch (e.code) {
+      case 'KeyE': enterQueued = true; break;
+      case 'Enter': confirmQueued = true; break;
+      case 'KeyP': onAction(ACTION_PAUSE); break;
+      case 'KeyM': onAction(ACTION_MUTE); break;
+      case 'KeyR': onAction(ACTION_RESTART); break;
+      case 'KeyC': onAction(ACTION_CONTINUE); break;
+      case 'KeyH': onAction(ACTION_HIDE_HINTS); break;
+      default: break;
+    }
   });
-  window.addEventListener('keyup', (e) => keys.delete(keyCode(e)));
-  window.addEventListener('blur', () => keys.clear());
+  window.addEventListener('keyup', (e) => held.delete(e.code));
+  window.addEventListener('blur', () => held.clear());
 
   canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
-    state.aimX = ((e.clientX - rect.left) / rect.width) * canvas.width;
-    state.aimY = ((e.clientY - rect.top) / rect.height) * canvas.height;
+    aimSX = ((e.clientX - rect.left) / rect.width) * canvas.width;
+    aimSY = ((e.clientY - rect.top) / rect.height) * canvas.height;
     state.aiming = true;
   });
   canvas.addEventListener('mousedown', (e) => {
@@ -48,25 +56,23 @@ export function createInput(canvas, onAction) {
   });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  // Convert the raw key set into the world's input shape, in canvas coordinates.
-  // `camera` maps screen space to world space for aiming.
-  function read(camera) {
-    const up = keys.has('KeyW') || keys.has('ArrowUp');
-    const down = keys.has('KeyS') || keys.has('ArrowDown');
-    const left = keys.has('KeyA') || keys.has('ArrowLeft');
-    const right = keys.has('KeyD') || keys.has('ArrowRight');
-    state.up = up;
-    state.down = down;
-    state.left = left;
-    state.right = right;
-    state.run = keys.has('ShiftLeft') || keys.has('ShiftRight');
-    state.handbrake = keys.has('Space');
+  // Fold the raw key set into the world's input shape. `toWorld` maps screen
+  // pixels to world coordinates so the mouse aims where it points.
+  function read(toWorld) {
+    state.up = held.has('KeyW') || held.has('ArrowUp');
+    state.down = held.has('KeyS') || held.has('ArrowDown');
+    state.left = held.has('KeyA') || held.has('ArrowLeft');
+    state.right = held.has('KeyD') || held.has('ArrowRight');
+    state.run = held.has('ShiftLeft') || held.has('ShiftRight');
+    state.handbrake = held.has('Space');
     state.enter = enterQueued;
     state.confirm = confirmQueued;
     enterQueued = false;
     confirmQueued = false;
-    if (camera && state.aiming) {
-      const world = camera(state.aimX, state.aimY);
+    if (toWorld && state.aiming) {
+      // World aim is recomputed from the stored screen position every frame,
+      // never from the previous frame's world aim.
+      const world = toWorld(aimSX, aimSY);
       state.aimX = world.x;
       state.aimY = world.y;
     }

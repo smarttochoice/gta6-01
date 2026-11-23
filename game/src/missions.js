@@ -1,5 +1,6 @@
-// The story: five jobs for Mara Reyes, getaway driver of Solano Bay. Each mission
-// is a list of steps the world interprets; the text is what the HUD shows.
+// The story: five jobs for Mara Reyes, getaway driver of Solano Bay, working
+// for the fixer Dante Cole. A mission is a list of steps the world plays
+// through; the briefing lines and step text are what the HUD shows the player.
 export const MISSIONS = [
   {
     id: 'first-pickup',
@@ -7,7 +8,7 @@ export const MISSIONS = [
     reward: 500,
     briefing: [
       'Dante Cole, fixer: "Mara. A package is waiting at the west docks."',
-      '"Grab it, bring it back to my garage. And keep it clean — first job nerves, I get it."',
+      '"Bring it back to my garage. Keep it clean — first-job nerves, I get it."',
     ],
     steps: [
       { kind: 'goto', at: 'docks', radius: 70, text: 'Pick up the package at the west docks' },
@@ -33,7 +34,7 @@ export const MISSIONS = [
     reward: 1500,
     briefing: [
       'Dante: "The crew hit a courier van. Cops are all over the bay now."',
-      '"You are the wheelman. Lose them. All of them. Then call me."',
+      '"You are the wheelman. Lose them. Every last one. Then call me."',
     ],
     steps: [
       { kind: 'evade', text: 'Lose the police — drop your wanted level to zero' },

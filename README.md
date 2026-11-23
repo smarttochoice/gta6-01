@@ -17,8 +17,8 @@ Want to try make.fun yourself? Start here: https://make.fun/r/w57pvztf
 ## Play
 
 Serve `game/` with any static server and open `game/index.html` in a desktop
-browser — no build step, no network request, everything is vendored or drawn
-in code:
+browser — no build step, no network request, everything is drawn or
+synthesized in code:
 
 ```sh
 node serve.ts   # serves game/ at http://localhost:8080
@@ -33,6 +33,7 @@ node serve.ts   # serves game/ at http://localhost:8080
 | SPACE | Handbrake |
 | P | Pause |
 | M | Mute |
+| H | Hide / show the HUD hints |
 | ENTER | Start / retry a job |
 
 ## The game
@@ -64,8 +65,10 @@ node serve.ts   # serves game/ at http://localhost:8080
 
 - `game/index.html` — the shell (1280×720 canvas, no network loads)
 - `game/src/main.js` — boot, fixed-step loop, screens, save wiring
-- `game/src/world.js` — simulation: driving, traffic AI, police AI, combat,
-  wanted system, mission driver
+- `game/src/world.js` — simulation core: the player, driving, mission driver
+- `game/src/traffic.js` — traffic AI, pedestrians, rival gang
+- `game/src/police.js` — wanted heat, police spawns and chases
+- `game/src/combat.js` — bullets, particles, damage, pickups
 - `game/src/city.js` — seeded city generation, buildings, road graph
 - `game/src/render.js` — canvas renderer, HUD, minimap, screens
 - `game/src/missions.js` — the five story jobs
@@ -73,7 +76,7 @@ node serve.ts   # serves game/ at http://localhost:8080
 - `game/src/audio.js` — WebAudio synth
 - `game/src/shots.js` — staged screenshot scenes (`?shot=start|chase|mission|wanted`)
 - `game/src/save.js` — localStorage save / continue
-- `game/src/config.js` + `game/src/random.js` — tuning and seeded RNG
+- `game/src/config.js` + `game/src/random.js` + `game/src/util.js` — tuning, seeded RNG, geometry
 - `main.ts` — the entry program: copies `game/` + `screenshots/` to
   `/output` and writes `dossier.json` with the vendored make.fun library
 - `screenshots/` — four real renders of the game's own code

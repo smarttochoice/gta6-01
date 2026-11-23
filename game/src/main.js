@@ -1,11 +1,11 @@
-// Boot and the one loop: input is read every frame, the world advances in fixed
-// 1/60 s steps, and the renderer paints what is there. The game moves between four
-// screens: title, play, paused and game over.
+// Boot and the one loop: input is read every frame, the world advances in
+// fixed 1/60 s steps, and the renderer paints what is there. The game moves
+// between four screens: title, play, paused and game over.
 //
-// ?seed=N fixes the city. ?shot=start|chase|mission|wanted (with &seed=N) stages
-// that scene instead of running the loop, paints it twice and sets
+// ?seed=N fixes the city. ?shot=start|chase|mission|wanted (with &seed=N)
+// stages that scene instead of running the loop, paints it twice and sets
 // window.__shotReady for a screenshot.
-import { STEP } from './config.js';
+import { CITY, TICK } from './config.js';
 import { createWorld } from './world.js';
 import { createInput } from './input.js';
 import { createAudio } from './audio.js';
@@ -14,7 +14,6 @@ import { createRenderer, SCREEN_OVER, SCREEN_PAUSED, SCREEN_PLAY, SCREEN_TITLE }
 import { stageShot } from './shots.js';
 
 const MAX_FRAME = 0.25;
-const WORLD = 3200;
 const VIEW_W = 1280;
 const VIEW_H = 720;
 
@@ -37,6 +36,7 @@ const view = {
   briefingUntil: 0,
   flash: null,
   flashUntil: 0,
+  hintsHidden: false,
 };
 
 // The playtest harness and the shot stager read the live game through this.
@@ -52,8 +52,8 @@ window.__game = {
 
 function cameraToWorld(sx, sy) {
   const p = world.state.player;
-  const camX = Math.max(VIEW_W / 2 - 40, Math.min(WORLD - VIEW_W / 2 + 40, p.x));
-  const camY = Math.max(VIEW_H / 2 - 40, Math.min(WORLD - VIEW_H / 2 + 40, p.y));
+  const camX = Math.max(VIEW_W / 2 - 40, Math.min(CITY.size - VIEW_W / 2 + 40, p.x));
+  const camY = Math.max(VIEW_H / 2 - 40, Math.min(CITY.size - VIEW_H / 2 + 40, p.y));
   return { x: sx + camX - VIEW_W / 2, y: sy + camY - VIEW_H / 2 };
 }
 
@@ -61,11 +61,15 @@ function announce(message) {
   status.textContent = message;
 }
 
+function showBriefing() {
+  view.briefing = world.state.mission ? world.state.mission.briefing : null;
+  view.briefingUntil = world.state.time + 7;
+}
+
 function startNewGame() {
   world.reset();
   view.screen = SCREEN_PLAY;
-  view.briefing = world.state.mission ? world.state.mission.briefing : null;
-  view.briefingUntil = world.state.time + 7;
+  showBriefing();
   audio.unlock();
   announce('Playing Solano Heat. First job: pick up the package at the west docks.');
 }
@@ -75,8 +79,7 @@ function continueGame() {
   world.reset();
   applySave(world, savedGame);
   view.screen = SCREEN_PLAY;
-  view.briefing = world.state.mission ? world.state.mission.briefing : null;
-  view.briefingUntil = world.state.time + 7;
+  showBriefing();
   audio.unlock();
   announce('Continuing your saved game.');
 }
@@ -111,10 +114,35 @@ function runGame() {
       announce('Back at the title screen.');
     }
     if (action === 'continue' && view.screen === SCREEN_TITLE && savedGame) continueGame();
+    if (action === 'hide-hints') {
+      view.hintsHidden = !view.hintsHidden;
+      announce(view.hintsHidden ? 'HUD hints hidden.' : 'HUD hints shown.');
+    }
   });
   let accumulator = 0;
   let last = performance.now();
   let saveTimer = 0;
+
+  function drainEvents() {
+    const events = world.state.events;
+    if (events.length === 0) return;
+    for (const event of events) {
+      audio.play(event);
+      if (event === 'mission') {
+        const m = world.state.mission;
+        if (m && m.briefing) showBriefing();
+      }
+      if (event === 'mission-complete') {
+        view.flash = 'JOB COMPLETE';
+        view.flashUntil = world.state.time + 3;
+        writeSave(world);
+      }
+      if (event === 'mission-failed') {
+        view.flash = null;
+      }
+    }
+    events.length = 0;
+  }
 
   function frame(now) {
     requestAnimationFrame(frame);
@@ -126,9 +154,9 @@ function runGame() {
       world.step(dt, { up: false, down: false, left: false, right: false });
     } else if (view.screen === SCREEN_PLAY) {
       accumulator += dt;
-      while (accumulator >= STEP) {
-        world.step(STEP, keys);
-        accumulator -= STEP;
+      while (accumulator >= TICK) {
+        world.step(TICK, keys);
+        accumulator -= TICK;
         // Edge-triggered actions fire once, not once per substep.
         keys.enter = false;
         keys.confirm = false;
@@ -149,30 +177,6 @@ function runGame() {
       if (keys.confirm) startNewGame();
     }
     renderer.draw(world.state, view);
-  }
-
-  function drainEvents() {
-    const events = world.state.events;
-    if (events.length === 0) return;
-    for (const event of events) {
-      audio.play(event);
-      if (event === 'mission') {
-        const m = world.state.mission;
-        if (m && m.briefing) {
-          view.briefing = m.briefing;
-          view.briefingUntil = world.state.time + 7;
-        }
-      }
-      if (event === 'mission-complete') {
-        view.flash = 'JOB COMPLETE';
-        view.flashUntil = world.state.time + 3;
-        writeSave(world);
-      }
-      if (event === 'mission-failed') {
-        view.flash = null;
-      }
-    }
-    events.length = 0;
   }
 
   requestAnimationFrame(frame);

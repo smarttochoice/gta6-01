@@ -1,4 +1,6 @@
-// Save / continue through localStorage: cash, jobs done, position, health, armor.
+// Save / continue through localStorage: cash, jobs done, position, health,
+// armor and lifetime earnings. A save that cannot be read is treated as no
+// save; storage being off never stops the game from playing.
 import { SAVE_KEY } from './config.js';
 
 export function readSave() {
